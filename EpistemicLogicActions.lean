@@ -114,7 +114,7 @@ structure Model (σ : Nat) :=
   RPDLRecv : Agent → Message σ → World σ → World σ → Bool
   RPDLGen : Agent → Message σ → World σ → World σ → Bool 
   Valuation : Fin σ → World σ → Bool
-  ValuationConstants : Agent → Message σ → World σ → Bool    
+  ValuationConstants : Agent → Message σ → World σ → Bool
   ValuationFresh : Agent → Message σ → World σ → Bool 
   BSerial : ∀ (a : Agent) (x : World σ), ∃ (y : World σ), R𝔹 a x y 
   BTrans : ∀ (a : Agent) (x : World σ) (y : World σ) (z : World σ), ((R𝔹 a x y ∧ R𝔹 a y z) → R𝔹 a x z)  
@@ -154,6 +154,8 @@ def ModelSatisfies {σ : Nat} (M : Model σ) (φ : Formula σ) :=
 @[simp]
 def ModelSatisfiesContext {σ : Nat} (M : Model σ) (Γ : Context σ) : World σ → Prop := 
   fun (w : World σ) => ∀ (φ : Formula σ), ((Γ.Mem φ) → (ModelSatisfiesInState M w φ))
+
+set_option allowUnsafeReducibility true
 
 @[reducible]
 inductive SemanticCsq {σ : Nat} (Γ : Context σ) (φ : Formula σ) : Prop :=
@@ -323,7 +325,7 @@ theorem Soundness {σ : Nat} (Γ : Context σ) (φ : Formula σ) : (Γ ⊢ φ) �
     have h₅ := h₃ rel 
     have h₆ := h₄ rel 
     trivial 
-  case BDistFromConj_left _ a p r h₀ h₁ => 
+  case BDistFromConj_left a p r h₀ h₁ => 
     apply SemanticCsq.is_true 
     intros M w mem ctt 
     cases h₁ with | is_true h₂ =>
@@ -333,7 +335,7 @@ theorem Soundness {σ : Nat} (Γ : Context σ) (φ : Formula σ) : (Γ ⊢ φ) �
     specialize h₂ v
     have h₃ := h₂ rel 
     exact And.left h₃   
-  case BDistFromConj_right _ a p r h₀ h₁ => 
+  case BDistFromConj_right a p r h₀ h₁ => 
     apply SemanticCsq.is_true 
     intros M w mem ctt 
     cases h₁ with | is_true h₂ =>
@@ -754,7 +756,7 @@ def BuildModel {σ : Nat} (P : Protocol σ) : AutomaticallyGeneratedModel σ :=
 
   let belief_relation := firstOccuranceForEveryAgent.map (fun (ag, initialAgentState) => 
     let allStates := List.range numberOfStates 
-    let agentStates := (List.foldr (fun x y => x ++ y) [] $ (allStates.map (fun x => allStates.map (fun y => if x < y then [x, y] else []))))
+    let agentStates := (List.foldr (fun x y => x ++ y) [] $ (allStates.map (fun x => allStates.map (fun y => if x < y then [x, y] else [])))) ++ [[allStates.getAtIndex! (allStates.length - 1) 0, allStates.getAtIndex! (allStates.length - 1) 0]]
     let agentListFiltered := agentStates.filter (fun (list : List Nat) => list.getAtIndex! 0 0 >= initialAgentState) 
     (agentListFiltered.map (fun list => (ag, list))).filter (fun (_, list) => list != [])
   )
@@ -789,9 +791,33 @@ section OSS
 
   #reduce OSSModel 
 
+  #reduce OSSModel ⊧ 𝕏 "i", #"ni"#
+
+  #reduce OSSModel ⊧ [recv "r"(⦃|#"i"# ‖ #"ni"#|⦄pk("r"))] (𝕏 "r", (⦃|#"i"# ‖ #"ni"#|⦄pk("r")))
+
   #reduce OSSModel ⊧ [recv "r"(⦃|#"i"# ‖ #"ni"#|⦄pk("r"))] ((𝕂 "i", 𝕏 "r", #"ni"#) ⋀ (𝕂 "r", 𝕏 "i", #"ni"#))
 
+  
+
 end OSS
+
+section OSSE
+  instance OSSE {σ : Nat} : Protocol σ := 
+  {
+    Agents := ["i", "r", "e"]
+    SymmetricKeys := []
+    Specification := [
+      { Sender := "e", Receiver := "r", Message := ⦃|#"i"# ‖ #"ne"#|⦄pk("r") }
+    ]
+  }
+
+  def OSSEModel {σ : Nat} : AutomaticallyGeneratedModel σ := BuildModel OSSE
+
+  #reduce OSSEModel 
+
+  #reduce OSSEModel ⊧ [recv "r"(⦃|#"i"# ‖ #"ni"#|⦄pk("r"))] ((𝕂 "i", 𝕏 "r", #"ni"#) ⋀ (𝕂 "r", 𝕏 "i", #"ni"#))
+
+end OSSE
 
 /-
   **Needham Schroeder**
