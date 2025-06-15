@@ -620,7 +620,7 @@ def Satisfies {σ : Nat} (M : AutomaticallyGeneratedModel σ) (φ : Formula σ) 
 notation M " ⊧ " φ => Satisfies M φ 
 
 /-
-  **Generate model**
+  **Generate model (AGM)**
 -/
 
 structure ProtocolAction (σ : Nat) := 
